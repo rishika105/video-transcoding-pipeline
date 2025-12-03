@@ -13,6 +13,7 @@
   "type": "module",
   "description": "",
   "dependencies": {
+    "@aws-sdk/client-ecs": "^3.943.0",
     "@aws-sdk/client-s3": "^3.943.0",
     "@aws-sdk/client-sqs": "^3.943.0",
     "@types/express": "^5.0.6",

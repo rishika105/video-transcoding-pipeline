@@ -20,22 +20,22 @@ const RESOLUTIONS = [
 ];
 
 const s3Client = new S3Client({
-  region: "ap-south-1",
+  region: "us-east-1",
   credentials: {
-    accessKeyId: process.env.ACCESS_KEY,
-    secretAccessKey: process.env.ACCESS_KEY_SECRET,
+    accessKeyId: "",
+    secretAccessKey: "",
   },
 });
 
 const BUCKET_NAME = process.env.BUCKET_NAME;
-const KEY = process.env.BUCKET_KEY;
+const KEY = process.env.KEY;
 
 async function init() {
   console.log("Downloading video from S3...");
 
   const getCmd = new GetObjectCommand({
     Bucket: BUCKET_NAME,
-    Key: KEY,
+    Key: decodeURIComponent(KEY.replace(/\+/g, " ")),
   });
 
   const result = await s3Client.send(getCmd);
@@ -74,7 +74,7 @@ async function init() {
           const fileBuffer = await fs.readFile(outputFile);
 
           const putCmd = new PutObjectCommand({
-            Bucket: process.env.PRODUCTION_BUCKET_NAME,
+            Bucket: "production-rishika",
             Key: `transcoded/${videoId}/video-${res.name}.mp4`,
             Body: fileBuffer,
             ContentType: "video/mp4",
@@ -93,7 +93,6 @@ async function init() {
   await Promise.all(promises);
 
   console.log("All resolutions processed and uploaded!");
-  //close container
 }
 
-init().catch(console.error).finally(() =>  process.exit(0));
+init().catch(console.error);
