@@ -69,7 +69,9 @@ ECS uses **ephemeral storage**, so you should have `videos/` and `transcoded/` d
 
 ---
 
-# 🐳 **3. Build & Push Docker (ECR)**
+# 🐳 **2. Build & Push Docker (ECR)**
+
+Go to Elastic Container Registery(ECR) in AWS. Create a repository.
 
 ```bash
 cd container
