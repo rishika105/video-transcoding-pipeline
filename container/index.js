@@ -22,8 +22,8 @@ const RESOLUTIONS = [
 const s3Client = new S3Client({
   region: "us-east-1",
   credentials: {
-    accessKeyId: "",
-    secretAccessKey: "",
+    accessKeyId: process.env.ACCESS_KEY,
+    secretAccessKey: process.env.ACCESS_KEY_SECRET,
   },
 });
 

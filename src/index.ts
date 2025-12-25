@@ -66,8 +66,6 @@ async function init() {
                     const { bucket, object: { key } } = s3;
                     const decodedKey = decodeURIComponent(key.replace(/\+/g, " "));
 
-
-
                     // Spin the docker container from the temp s3 bucket
                     const runTaskCmd = new RunTaskCommand({
                         taskDefinition: "arn:aws:ecs:us-east-1:471112546627:task-definition/transcoder-task",
@@ -89,7 +87,9 @@ async function init() {
                                 name: "video-transcoder",
                                 environment: [
                                     { name: "BUCKET_NAME", value: bucket.name },
-                                    { name: "KEY", value: decodedKey }
+                                    { name: "KEY", value: decodedKey },
+                                    {name: "ACCESS_KEY", value: process.env.ACCESS_KEY},
+                                    {name: "ACCESS_KEY_SECRET", value: process.env.ACCESS_KEY_SECRET},
                                 ]
                             }]
                         }
