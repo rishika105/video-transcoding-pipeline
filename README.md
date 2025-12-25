@@ -15,29 +15,47 @@ It is deployed as a **container on AWS ECS** and triggered via **AWS SQS** event
 * **AWS SDK**
 * **FFmpeg (via Docker image: `jrottenberg/ffmpeg` or custom)**
 
+### **Pre-requisites**
+
+* **Node.js** (22.x or higher)
+* **Docker** (28.x or higher)
+* **AWS CLI** (1.x or higher)
+
 ### **AWS Services**
 
 * **Amazon S3**
 
-  * temp bucket → raw uploads
-  * production bucket → transcoded outputs
-* **Amazon SQS**
+  * temp-bucket/videos → raw uploads
+  * production-bucket → transcoded outputs
 
+* **Amazon SQS**
   * triggers transcoder jobs
+
 * **Amazon ECS (Fargate or EC2)**
 * **Amazon ECR**
 
-  * for container images
+  * for running docker container
+
 * **IAM Roles**
 
   * S3 read/write
   * SQS receive/delete
 
-Note: For this project used access keys directly but use IAM roles instead for security.
+Note: For this project used IAM access keys directly but use with IAM roles instead for security.
 
 ---
 
 ## **🧱 Architecture Overview**
+
+When a user uploads a video, in a temporary Amazon S3 bucket it triggers the backend to send a message to an Amazon SQS queue containing the video’s S3 key and metadata. 
+
+The main/worker code polls the queue for any message every 20 seconds. 
+
+Upon receiving a message, it runs an ECS task which has a Node.js application inside a Docker container (with FFmpeg installed).
+
+
+The container/task downloads the raw video from the temp S3 bucket, transcodes it into multiple resolutions (Here, 360p, 480p, 720p) using FFmpeg, and uploads the processed videos to a production S3 bucket under a unique video ID. 
+
 
 <img width="842" height="450" alt="image" src="https://github.com/user-attachments/assets/39fba6ce-2613-4f73-b244-d18f46043821" />
 
@@ -55,41 +73,68 @@ cd container
 npm install
 ```
 
-### Add `.env` in **both** `/` and `/container`
+### Add `.env` in root directory
 
 ```
-PRODUCTION_BUCKET_NAME=my-temp
 ACCESS_KEY=your_key
 ACCESS_KEY_SECRET=your_secret
 ```
 
-### **Filesystem**
+# **Steps**
 
-ECS uses **ephemeral storage**, so you should have `videos/` and `transcoded/` directories live *inside the container only* and are cleaned every task restart.
-
----
-
-# 🐳 **2. Build & Push Docker (ECR)**
-
-Go to Elastic Container Registery(ECR) in AWS. Create a repository.
+#### 1. Go to amazon ECS console and create a IAM user. Generate Access key and add in project. Configure it with aws-cli.
 
 ```bash
-cd container
-aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <ID>.dkr.ecr.ap-south-1.amazonaws.com
-docker build -t video-transcoder .
-docker tag video-transcoder:latest <ID>.dkr.ecr.ap-south-1.amazonaws.com/video-transcoder:latest
-docker push <ID>.dkr.ecr.ap-south-1.amazonaws.com/video-transcoder:latest
+aws configure
 ```
 
-**Directly use *view push commands* from ECR image.
+#### 2. Create two buckets in S3. One for temp uploads (add a folder /videos) and one for production outputs.
 
----
+* Create an event notification for the temp bucket to trigger the SQS service.
 
-# 🚀 **4. Deploy to ECS (Fargate or EC2)**
+* Allow all objects creations.
 
-Make task definition, add your own subnets, security groups in worker code.
+* Change production bucket name in container code.
 
-### Start worker/project
+#### 3. Create a SQS Service. Disable encryption(add later). Add Permissions allowing to recieve events from S3.
+
+* Add this policy with your ARNs(copy from services).
+
+```bash 
+{
+      "Sid": "allowS3BucketToSendMessage",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "s3.amazonaws.com"
+      },
+      "Action": "SQS:SendMessage",
+      "Resource": "arn:aws:sqs:ap-south-1:471112546627:TempRawVideoSQS",
+      "Condition": {
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:s3:::temp-raw-videos-rishika"
+        }
+      }
+    }
+  ```
+
+* Copy your ARN to main code.
+
+
+#### 🐳 4. Build Image & Push Docker (ECR)
+
+* Go to Elastic Container Registery (ECR) in AWS. Create a repository (video-transcoder). 
+
+* View push commands and go to container and push the container in registry.
+
+* Create and Elastic Container Service (ECS) cluster (dev) and task definition (transcoder-task).
+
+* Task definition must have :latest image URL.
+
+* Copy respective ARNs of cluster and task to code. Also go to cluster -> Run task -> Copy subnets and security groups and paste in main code.
+
+
+
+#### 5. Start worker/project
 
 ```bash
 npm run dev
@@ -97,7 +142,7 @@ npm run dev
 
 ---
 
-# 🧪 **2. Test Full Flow**
+# 🧪 Test Full Flow
 
 ### **Step 1 — Upload video to S3**
 
@@ -135,7 +180,6 @@ Worker keeps polling SQS for any message and then runs the container and process
 
 
 
-
 ## **📌 Notes / Limitations**
 
 * ECS ephemeral storage defaults to **20GB** (configurable)
@@ -144,5 +188,4 @@ Worker keeps polling SQS for any message and then runs the container and process
   * Increase task storage to **50GB / 100GB**
   * Use chunked processing (future enhancement)
 * FFmpeg is CPU-heavy → keep ECS tasks as **1 task per core**
-
 
