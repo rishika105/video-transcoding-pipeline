@@ -13,7 +13,7 @@ It is deployed as a **container on AWS ECS** and triggered via **AWS SQS** event
 * **Node.js**
 * **Express (optional)**
 * **AWS SDK**
-* **FFmpeg (via Docker image: `jrottenberg/ffmpeg` or custom)**
+* **FFmpeg (via Docker image)**
 
 ### **Pre-requisites**
 
